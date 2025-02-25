@@ -128,11 +128,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         # Depth regularization
         Ll1depth_pure = 0.0
         if depth_l1_weight(iteration) > 0 and viewpoint_cam.depth_reliable:
-            invDepth = render_pkg["depth"] #这是渲染包中的深度图，表示的是逆深度（inverse depth）
-            mono_invdepth = viewpoint_cam.invdepthmap.cuda() #这是相机的逆深度图，表示的是单目深度图（monocular depth map）。
-            depth_mask = viewpoint_cam.depth_mask.cuda() #这是深度掩码，用于指示哪些像素的深度是可靠的。
+            invDepth = render_pkg["depth"] #这是渲染中的深度图，表示的是逆深度（inverse depth）
+            mono_invdepth = viewpoint_cam.invdepthmap.cuda() #这是相机的逆深度图，loadCam时自己传的参数。
+            depth_mask = viewpoint_cam.depth_mask.cuda() #这是深度掩码，用于指示哪些像素的深度是可靠的。初始化时是全1，如果深度不可靠(scale<0.2倍或>5倍的中位scale)，就会被置全为0。
 
-            Ll1depth_pure = torch.abs((invDepth  - mono_invdepth) * depth_mask).mean() #计算的是渲染的逆深度图和单目逆深度图之间的绝对差值的平均值。
+            Ll1depth_pure = torch.abs((invDepth  - mono_invdepth) * depth_mask).mean() #计算的是渲染的逆深度图和相机逆深度图之间的绝对差值的平均值。
             Ll1depth = depth_l1_weight(iteration) * Ll1depth_pure #这是加权后的深度L1损失，使用了一个随迭代次数变化的权重函数
             loss += Ll1depth
             Ll1depth = Ll1depth.item()

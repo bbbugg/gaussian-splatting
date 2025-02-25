@@ -39,19 +39,19 @@ class Camera(nn.Module):
             print(f"[Warning] Custom device {data_device} failed, fallback to default cuda device" )
             self.data_device = torch.device("cuda")
 
-        resized_image_rgb = PILtoTorch(image, resolution)
-        gt_image = resized_image_rgb[:3, ...]
+        resized_image_rgb = PILtoTorch(image, resolution) #将图像转换成torch格式并调整大小
+        gt_image = resized_image_rgb[:3, ...] #取出RGB通道
         self.alpha_mask = None
-        if resized_image_rgb.shape[0] == 4:
-            self.alpha_mask = resized_image_rgb[3:4, ...].to(self.data_device)
-        else: 
-            self.alpha_mask = torch.ones_like(resized_image_rgb[0:1, ...].to(self.data_device))
+        if resized_image_rgb.shape[0] == 4: #如果有alpha通道
+            self.alpha_mask = resized_image_rgb[3:4, ...].to(self.data_device) #取出alpha通道
+        else:
+            self.alpha_mask = torch.ones_like(resized_image_rgb[0:1, ...].to(self.data_device)) #如果没有alpha通道，就创建一个全1的alpha通道
 
         if train_test_exp and is_test_view:
-            if is_test_dataset:
-                self.alpha_mask[..., :self.alpha_mask.shape[-1] // 2] = 0
-            else:
-                self.alpha_mask[..., self.alpha_mask.shape[-1] // 2:] = 0
+            if is_test_dataset: #如果是测试集
+                self.alpha_mask[..., :self.alpha_mask.shape[-1] // 2] = 0 #将alpha通道的前一半设置为0
+            else: #如果是训练集
+                self.alpha_mask[..., self.alpha_mask.shape[-1] // 2:] = 0 #将alpha通道的后一半设置为0
 
         self.original_image = gt_image.clamp(0.0, 1.0).to(self.data_device)
         self.image_width = self.original_image.shape[2]
@@ -60,7 +60,7 @@ class Camera(nn.Module):
         self.invdepthmap = None
         self.depth_reliable = False
         if invdepthmap is not None:
-            self.depth_mask = torch.ones_like(self.alpha_mask)
+            self.depth_mask = torch.ones_like(self.alpha_mask) #创建一个全1的深度掩码
             self.invdepthmap = cv2.resize(invdepthmap, resolution)
             self.invdepthmap[self.invdepthmap < 0] = 0
             self.depth_reliable = True
@@ -69,7 +69,7 @@ class Camera(nn.Module):
                 if depth_params["scale"] < 0.2 * depth_params["med_scale"] or depth_params["scale"] > 5 * depth_params["med_scale"]:
                     self.depth_reliable = False
                     self.depth_mask *= 0
-                
+
                 if depth_params["scale"] > 0:
                     self.invdepthmap = self.invdepthmap * depth_params["scale"] + depth_params["offset"]
 
@@ -87,11 +87,11 @@ class Camera(nn.Module):
         self.projection_matrix = getProjectionMatrix(znear=self.znear, zfar=self.zfar, fovX=self.FoVx, fovY=self.FoVy).transpose(0,1).cuda()
         self.full_proj_transform = (self.world_view_transform.unsqueeze(0).bmm(self.projection_matrix.unsqueeze(0))).squeeze(0)
         self.camera_center = self.world_view_transform.inverse()[3, :3]
-        
+
 class MiniCam:
     def __init__(self, width, height, fovy, fovx, znear, zfar, world_view_transform, full_proj_transform):
         self.image_width = width
-        self.image_height = height    
+        self.image_height = height
         self.FoVy = fovy
         self.FoVx = fovx
         self.znear = znear
